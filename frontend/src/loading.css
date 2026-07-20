@@ -18,3 +18,14 @@
 @keyframes button-spin {
   to { transform: rotate(360deg); }
 }
+
+.field-error {
+  color: #B83A3A;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.auth-form input[aria-invalid="true"],
+.auth-form textarea[aria-invalid="true"] {
+  border-color: #B83A3A;
+}
