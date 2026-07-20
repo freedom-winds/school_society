@@ -1,0 +1,7 @@
+export type User = { id: number; username: string; display_name: string; role: 'USER' | 'CLUB_MANAGER' | 'ADMIN'; status: string; [key: string]: unknown }
+export type Category = { id: number; name: string; slug: string; icon?: string; sort_order: number; is_active: boolean }
+export type Honor = { id?: number; title: string; year?: number | null; level?: string | null; description?: string | null; sort_order?: number }
+export type Revision = { id: number; club_id: number; version_no: number; name: string; category_id?: number | null; category?: Category | null; short_intro: string; recruitment_slogan: string; full_intro: string; advisor?: string | null; activity_time?: string | null; activity_location?: string | null; icon_file_id?: number | null; icon_url?: string | null; poster_file_id?: number | null; poster_url?: string | null; review_status: string; review_note?: string | null; lock_version: number; honors: Honor[]; [key: string]: unknown }
+export type Club = { id: number; slug: string; lifecycle_status: string; display_status?: string; name?: string; category?: Category | null; short_intro?: string; recruitment_slogan?: string; icon_url?: string | null; current_revision?: Revision | null; [key: string]: unknown }
+export type Position = { id: number; club_id: number; user_id: number; user: User; position: string; status: string; [key: string]: unknown }
+export type Transfer = { id: number; club_id: number; from_user: User; to_user: User; status: string; message?: string; [key: string]: unknown }
