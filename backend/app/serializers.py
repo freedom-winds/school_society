@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from sqlalchemy import select
+
 from .models import Club, ClubCategory, ClubPosition, ClubRevision, ClubRevisionHonor, PresidentTransferRequest, UploadedFile, User
 
 
@@ -68,6 +70,13 @@ def club_data(club: Club, session, include_current: bool = True, include_interna
         data["current_revision"] = revision_data(current, session)
         data.update({key: data["current_revision"][key] for key in ["name", "category", "short_intro", "recruitment_slogan", "icon_url"]})
     if include_internal:
+        latest = current or session.scalar(select(ClubRevision).where(ClubRevision.club_id == club.id).order_by(ClubRevision.version_no.desc()))
+        if latest:
+            data["latest_revision"] = revision_data(latest, session)
+            data["latest_revision_id"] = latest.id
+            data["latest_revision_status"] = latest.review_status
+            if not current:
+                data.update({key: data["latest_revision"][key] for key in ["name", "category", "short_intro", "recruitment_slogan", "icon_url"]})
         pending = session.query(ClubRevision).filter_by(club_id=club.id, review_status="PENDING").first()
         data["display_status"] = "MODIFICATION_PENDING" if club.lifecycle_status == "PUBLISHED" and pending else club.lifecycle_status
         data["current_revision_id"] = club.current_revision_id
