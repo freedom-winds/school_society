@@ -109,6 +109,34 @@ def test_admin_disable_refresh_hash_audit_and_image_validation(client, app):
         assert all("password" not in t.__dict__ for t in token_rows)
 
 
+def test_admin_can_persist_public_club_display_order(client, app):
+    admin = login(client, "admin", "Admin123!")
+    manager_id = register(client, "ordering-manager", "CLUB_MANAGER", "申请负责人")
+    approve(client, admin, manager_id, "CLUB_MANAGER")
+    manager = login(client, "ordering-manager", "password123")
+
+    first = client.post("/api/v1/clubs", json={"name": "排序社团甲"}, headers=headers(manager)).get_json()["data"]
+    first_revision = complete_revision(client, manager, first["club"]["id"], first["revision"]["id"])
+    assert client.post(f"/api/v1/clubs/{first['club']['id']}/submit", json={"revision_id": first_revision["id"]}, headers=headers(manager)).status_code == 200
+    assert client.post(f"/api/v1/admin/reviews/clubs/{first_revision['id']}/approve", json={}, headers=headers(admin)).status_code == 200
+
+    second = client.post("/api/v1/clubs", json={"name": "排序社团乙"}, headers=headers(manager)).get_json()["data"]
+    second_revision = complete_revision(client, manager, second["club"]["id"], second["revision"]["id"], suffix="乙")
+    assert client.post(f"/api/v1/clubs/{second['club']['id']}/submit", json={"revision_id": second_revision["id"]}, headers=headers(manager)).status_code == 200
+    assert client.post(f"/api/v1/admin/reviews/clubs/{second_revision['id']}/approve", json={}, headers=headers(admin)).status_code == 200
+
+    order = [first["club"]["id"], second["club"]["id"]]
+    assert client.get("/api/v1/admin/clubs/ordering").status_code == 401
+    saved = client.put("/api/v1/admin/clubs/ordering", json={"club_ids": order}, headers=headers(admin))
+    assert saved.status_code == 200 and [club["id"] for club in saved.get_json()["data"]] == order
+    public = client.get("/api/v1/public/clubs").get_json()["data"]["items"]
+    assert [club["id"] for club in public[:2]] == order
+    stale = client.put("/api/v1/admin/clubs/ordering", json={"club_ids": order[:1]}, headers=headers(admin))
+    assert stale.status_code == 409 and stale.get_json()["error"]["code"] == "ORDERING_CONFLICT"
+    with app.app_context():
+        assert db.session.get(Club, first["club"]["id"]).sort_order > db.session.get(Club, second["club"]["id"]).sort_order
+
+
 def test_spec_edge_cases_admin_lifecycle_refresh_and_cross_club_permissions(client, app):
     """Covers the remaining SPEC acceptance points through two end-to-end flows."""
     admin = login(client, "admin", "Admin123!")
