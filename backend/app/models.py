@@ -105,6 +105,7 @@ class Club(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     lifecycle_status: Mapped[str] = mapped_column(String(24), nullable=False, default=ClubLifecycle.DRAFT.value, index=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0, index=True)
     current_revision_id: Mapped[int | None] = mapped_column(ForeignKey("club_revisions.id", use_alter=True), index=True)
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
