@@ -8,7 +8,7 @@ from functools import wraps
 
 import jwt
 from flask import Blueprint, current_app, g, jsonify, make_response, request, send_from_directory
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 
 from .extensions import db
 from .models import (
@@ -550,11 +550,16 @@ def reject_club_review(revision_id):
 @admin_required
 def admin_clubs():
     query = db.session.query(Club)
-    status, keyword = request.args.get("status"), (request.args.get("keyword") or "").strip()
+    status, keyword, category_id = request.args.get("status"), (request.args.get("keyword") or "").strip(), request.args.get("category_id", type=int)
     if status:
         query = query.filter(Club.lifecycle_status == status)
-    if keyword:
-        query = query.join(ClubRevision, Club.current_revision_id == ClubRevision.id, isouter=True).filter(ClubRevision.name.ilike(f"%{keyword}%"))
+    if keyword or category_id:
+        latest = select(ClubRevision.club_id.label("club_id"), func.max(ClubRevision.version_no).label("version_no")).group_by(ClubRevision.club_id).subquery()
+        query = query.join(latest, latest.c.club_id == Club.id).join(ClubRevision, and_(ClubRevision.club_id == latest.c.club_id, ClubRevision.version_no == latest.c.version_no))
+        if keyword:
+            query = query.filter(ClubRevision.name.ilike(f"%{keyword}%"))
+        if category_id:
+            query = query.filter(ClubRevision.category_id == category_id)
     clubs, meta = paginate(query.order_by(Club.sort_order.desc(), Club.updated_at.desc()), request.args.get("page"), request.args.get("page_size"))
     return result({"items": [club_data(c, db.session, include_internal=True) for c in clubs], "pagination": meta})
 
