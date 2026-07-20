@@ -1,1 +1,12 @@
 .form-grid input[aria-invalid="true"],.form-grid textarea[aria-invalid="true"],.form-grid select[aria-invalid="true"]{border-color:#B83A3A;box-shadow:0 0 0 3px rgba(184,58,58,.1)}.form-grid .field-error{display:block}
+
+/* Keep the category heading out of the category-card grid. */
+.category-shortcuts>.section-heading{display:flex;grid-template-columns:none;min-height:0;padding:0;border:0;border-radius:0;overflow:visible;background:transparent}
+.category-shortcuts>.section-heading>div{display:block;min-height:0;padding:0;border:0;background:transparent}
+.category-shortcuts>.category-shortcut-grid{display:grid;grid-template-columns:repeat(6,1fr);border:1px solid #DDE3E8;border-radius:12px;overflow:hidden;background:#fff}
+
+.site-footer{position:relative}
+.footer-watermark{position:absolute;left:50%;transform:translateX(-50%);color:#AAB9C3;font-size:12px;white-space:nowrap}
+
+@media(max-width:1199px){.category-shortcuts>.category-shortcut-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:767px){.category-shortcuts>.category-shortcut-grid{grid-template-columns:repeat(2,1fr)}.footer-watermark{position:static;transform:none;justify-self:center}}
