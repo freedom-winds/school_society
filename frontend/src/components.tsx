@@ -9,7 +9,7 @@ export const statusLabel: Record<string, string> = { DRAFT: '草稿', PENDING_RE
 
 export function AppHeader() {
   const { user, clear } = useAuthStore(); const nav = useNavigate()
-  return <header className="site-header"><Link className="brand" to="/"><span className="brand-mark">S</span><span>上海中学学生社团</span></Link><nav><NavLink to="/clubs">全部社团</NavLink><NavLink to="/registration-status">审核查询</NavLink>{user && <NavLink to={user.role === 'ADMIN' ? '/admin' : '/dashboard'}>管理后台</NavLink>}</nav><div className="header-account">{user ? <><span className="account-name">{user.display_name}</span><button className="button text" onClick={() => { clear(); nav('/') }}>退出</button></> : <><Link className="button text" to="/login">登录</Link><Link className="button primary small" to="/register">注册账号</Link></>}</div></header>
+  return <header className="site-header"><Link className="brand" to="/"><span className="brand-mark">S</span><span>上海中学学生社团</span></Link><nav><NavLink to="/clubs">全部社团</NavLink>{user && <NavLink to="/registration-status">审核查询</NavLink>}{user && <NavLink to={user.role === 'ADMIN' ? '/admin' : '/dashboard'}>管理后台</NavLink>}</nav><div className="header-account">{user ? <><span className="account-name">{user.display_name}</span><button className="button text" onClick={() => { clear(); nav('/') }}>退出</button></> : <><Link className="button text" to="/login">登录</Link><Link className="button primary small" to="/register">注册账号</Link></>}</div></header>
 }
 
 export function AppFooter() { return <footer className="site-footer"><div><b>校园社团中心</b><span>让每一份热爱被清晰看见</span></div><span>校园社团信息管理平台 · V1.0</span></footer> }
