@@ -94,6 +94,10 @@ def registration_status():
     if not user or user.password != str(data.get("password", "")):
         bucket.append(now)
         raise DomainError("INVALID_REGISTRATION_STATUS_CREDENTIALS", "用户名或密码错误", 401)
+    if user.status == UserStatus.ACTIVE.value:
+        access, refresh, active_user = AuthService.login(db.session, data, current_app.config, request)
+        response = make_response(result({"status": active_user.status, "access_token": access, "user": user_data(active_user)}))
+        return set_refresh_cookie(response, refresh)
     payload = {"status": user.status}
     if user.status == UserStatus.REJECTED.value:
         payload["rejection_reason"] = user.rejection_reason
