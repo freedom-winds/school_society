@@ -43,6 +43,8 @@ def test_club_versions_public_visibility_and_optimistic_lock(client, app):
     assert conflict.status_code == 409 and conflict.get_json()["error"]["code"] == "REVISION_CONFLICT"
     submit = client.post(f"/api/v1/clubs/{club_id}/submit", json={"revision_id": saved["id"]}, headers=headers(manager))
     assert submit.status_code == 200 and submit.get_json()["data"]["submitted_by"]
+    admin_club = next(item for item in client.get("/api/v1/admin/clubs", headers=headers(admin)).get_json()["data"]["items"] if item["id"] == club_id)
+    assert admin_club["name"] == "物理实验社" and admin_club["latest_revision_status"] == "PENDING"
     assert client.get("/api/v1/public/clubs").get_json()["data"]["items"] == []
     approved = client.post(f"/api/v1/admin/reviews/clubs/{saved['id']}/approve", json={}, headers=headers(admin))
     assert approved.status_code == 200
