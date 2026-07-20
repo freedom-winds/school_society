@@ -1,0 +1,1 @@
+.form-grid input[aria-invalid="true"],.form-grid textarea[aria-invalid="true"],.form-grid select[aria-invalid="true"]{border-color:#B83A3A;box-shadow:0 0 0 3px rgba(184,58,58,.1)}.form-grid .field-error{display:block}
