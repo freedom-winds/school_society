@@ -8,7 +8,7 @@ from functools import wraps
 
 import jwt
 from flask import Blueprint, current_app, g, jsonify, make_response, request, send_from_directory
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 
 from .extensions import db
 from .models import (
@@ -245,6 +245,14 @@ def update_draft(club_id):
     club = ClubService.get_club(db.session, club_id)
     revision = ClubService.update_draft(db.session, club, g.current_user, parse_body(), request)
     return result(revision_data(revision, db.session))
+
+
+@api.delete("/clubs/<int:club_id>/drafts/<int:revision_id>")
+@auth_required
+def delete_draft(club_id, revision_id):
+    club = ClubService.get_club(db.session, club_id)
+    ClubService.delete_draft(db.session, club, g.current_user, revision_id, request)
+    return result()
 
 
 @api.post("/clubs/<int:club_id>/submit")
@@ -560,7 +568,8 @@ def admin_clubs():
             query = query.filter(ClubRevision.name.ilike(f"%{keyword}%"))
         if category_id:
             query = query.filter(ClubRevision.category_id == category_id)
-    clubs, meta = paginate(query.order_by(Club.sort_order.desc(), Club.updated_at.desc()), request.args.get("page"), request.args.get("page_size"))
+    deleted_last = case((Club.lifecycle_status == ClubLifecycle.DELETED.value, 1), else_=0)
+    clubs, meta = paginate(query.order_by(deleted_last, Club.sort_order.desc(), Club.updated_at.desc()), request.args.get("page"), request.args.get("page_size"))
     return result({"items": [club_data(c, db.session, include_internal=True) for c in clubs], "pagination": meta})
 
 
