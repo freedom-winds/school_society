@@ -78,6 +78,8 @@ def test_club_category_defaults_to_academic_and_can_be_changed(client, app):
 
     changed = complete_revision(client, manager, created.get_json()["data"]["club"]["id"], revision["id"], category_id=alternative["id"])
     assert changed["category_id"] == alternative["id"] and changed["category"]["id"] == alternative["id"]
+    filtered = client.get(f"/api/v1/admin/clubs?category_id={alternative['id']}", headers=headers(admin)).get_json()["data"]["items"]
+    assert [club["id"] for club in filtered] == [created.get_json()["data"]["club"]["id"]]
 
 
 def test_position_invitation_and_president_transfer_permissions(client, app):
