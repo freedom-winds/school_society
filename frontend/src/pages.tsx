@@ -39,9 +39,35 @@ export function LoginPage() {
 }
 
 export function RegisterPage() {
-  const nav = useNavigate(); const [form, setForm] = useState({ username: '', password: '', display_name: '', requested_role: 'USER', application_reason: '' }); const [busy, setBusy] = useState(false)
-  const submit = async (e: FormEvent) => { e.preventDefault(); setBusy(true); try { await post('/auth/register', form); message.success('申请已提交，请等待管理员审核'); nav('/registration-status') } catch (err) { message.error(friendly(err)) } finally { setBusy(false) } }
-  return <PublicLayout><AuthShell title="申请一个账号" desc="所有账号需经管理员审核后才能登录。"><form className="auth-form" onSubmit={submit}><label>用户名<input value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} minLength={3} required /></label><label>展示名称<input value={form.display_name} onChange={e => setForm({ ...form, display_name: e.target.value })} required /></label><label>密码<input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} minLength={6} required /></label><label>申请身份<select value={form.requested_role} onChange={e => setForm({ ...form, requested_role: e.target.value })}><option value="USER">普通用户</option><option value="CLUB_MANAGER">社团负责人</option></select></label>{form.requested_role === 'CLUB_MANAGER' && <label>申请说明<textarea value={form.application_reason} onChange={e => setForm({ ...form, application_reason: e.target.value })} required placeholder="请说明负责的社团或申请原因" /></label>}<LoadingButton type="submit" loading={busy} loadingText="正在提交…" className="button primary full">提交注册申请</LoadingButton><p>已有账号？<Link to="/login">直接登录</Link></p></form></AuthShell></PublicLayout>
+  const nav = useNavigate(); const [form, setForm] = useState({ username: '', password: '', display_name: '', requested_role: 'USER', application_reason: '' }); const [busy, setBusy] = useState(false); const [errors, setErrors] = useState<Record<string, string>>({})
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    const next: Record<string, string> = {}
+    if (!form.username) next.username = '请输入用户名。'
+    else if (form.username.length < 3 || form.username.length > 50) next.username = '用户名长度应为 3—50 个字符。'
+    else if (!/^[A-Za-z0-9_.-]+$/.test(form.username)) next.username = '用户名只能包含英文字母、数字、下划线、圆点和连字符，不能含中文、空格或其他符号。'
+    if (!form.display_name.trim()) next.display_name = '请输入展示名称。'
+    else if (form.display_name.length > 50) next.display_name = '展示名称不能超过 50 个字符。'
+    if (!form.password) next.password = '请输入密码。'
+    else if (form.password.length < 6 || form.password.length > 255) next.password = '密码长度应为 6—255 个字符。'
+    if (form.requested_role === 'CLUB_MANAGER') {
+      if (!form.application_reason.trim()) next.application_reason = '申请社团负责人时必须填写申请说明。'
+      else if (form.application_reason.length > 2000) next.application_reason = '申请说明不能超过 2000 个字符。'
+    }
+    setErrors(next)
+    if (Object.keys(next).length) { message.error('请根据表单中的提示修正后再提交。'); return }
+    setBusy(true)
+    try {
+      await post('/auth/register', form)
+      message.success('申请已提交，请等待管理员审核')
+      nav('/registration-status')
+    } catch (err) {
+      const detail = friendly(err)
+      if (err instanceof ApiError && err.code === 'USERNAME_TAKEN') setErrors({ username: detail })
+      else message.error(detail)
+    } finally { setBusy(false) }
+  }
+  return <PublicLayout><AuthShell title="申请一个账号" desc="所有账号需经管理员审核后才能登录。"><form className="auth-form" onSubmit={submit} noValidate><label>用户名<input value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} aria-invalid={!!errors.username} placeholder="仅限英文、数字和 _ . -" />{errors.username && <small className="field-error">{errors.username}</small>}</label><label>展示名称<input value={form.display_name} onChange={e => setForm({ ...form, display_name: e.target.value })} aria-invalid={!!errors.display_name} />{errors.display_name && <small className="field-error">{errors.display_name}</small>}</label><label>密码<input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} aria-invalid={!!errors.password} />{errors.password && <small className="field-error">{errors.password}</small>}</label><label>申请身份<select value={form.requested_role} onChange={e => setForm({ ...form, requested_role: e.target.value })}><option value="USER">普通用户</option><option value="CLUB_MANAGER">社团负责人</option></select></label>{form.requested_role === 'CLUB_MANAGER' && <label>申请说明<textarea value={form.application_reason} onChange={e => setForm({ ...form, application_reason: e.target.value })} aria-invalid={!!errors.application_reason} placeholder="请说明负责的社团或申请原因" />{errors.application_reason && <small className="field-error">{errors.application_reason}</small>}</label>}<LoadingButton type="submit" loading={busy} loadingText="正在提交…" className="button primary full">提交注册申请</LoadingButton><p>已有账号？<Link to="/login">直接登录</Link></p></form></AuthShell></PublicLayout>
 }
 
 export function RegistrationStatusPage() {
