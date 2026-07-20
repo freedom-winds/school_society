@@ -12,7 +12,7 @@ export function AppHeader() {
   return <header className="site-header"><Link className="brand" to="/"><span className="brand-mark">S</span><span>上海中学学生社团</span></Link><nav><NavLink to="/clubs">全部社团</NavLink>{user && <NavLink to="/registration-status">审核查询</NavLink>}{user && <NavLink to={user.role === 'ADMIN' ? '/admin' : '/dashboard'}>管理后台</NavLink>}</nav><div className="header-account">{user ? <><span className="account-name">{user.display_name}</span><button className="button text" onClick={() => { clear(); nav('/') }}>退出</button></> : <><Link className="button text" to="/login">登录</Link><Link className="button primary small" to="/register">注册账号</Link></>}</div></header>
 }
 
-export function AppFooter() { return <footer className="site-footer"><div><b>校园社团中心</b><span>让每一份热爱被清晰看见</span></div><span>校园社团信息管理平台 · V1.0</span></footer> }
+export function AppFooter() { return <footer className="site-footer"><div><b>校园社团中心</b><span>让每一份热爱被清晰看见</span></div><span className="footer-watermark">281184 Alex 制作</span><span>校园社团信息管理平台 · V1.0</span></footer> }
 
 export function PageContainer({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) { return <main className={`page-container ${wide ? 'wide' : ''}`}>{children}</main> }
 export function SectionHeader({ eyebrow, title, action }: { eyebrow?: string; title: string; action?: React.ReactNode }) { return <div className="section-heading"><div>{eyebrow && <p className="eyebrow">{eyebrow}</p>}<h2>{title}</h2></div>{action}</div> }
