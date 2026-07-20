@@ -10,6 +10,7 @@ from pathlib import Path
 
 import jwt
 from PIL import Image, UnidentifiedImageError
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -149,7 +150,8 @@ class PermissionService:
 
 
 class ClubService:
-    REQUIRED = {"name": (2, 30, "社团名称需为 2—30 字"), "short_intro": (20, 100, "短简介需为 20—100 字"), "recruitment_slogan": (5, 80, "招新语需为 5—80 字"), "full_intro": (100, 3000, "完整介绍需为 100—3000 字")}
+    REQUIRED = {"name": (1, 50, "社团名称需为 1—50 字"), "short_intro": (1, 200, "短简介需为 1—200 字"), "recruitment_slogan": (1, 120, "招新语需为 1—120 字"), "full_intro": (1, 5000, "完整介绍需为 1—5000 字")}
+    FIELD_LABELS = {"name": "社团名称", "short_intro": "短简介", "recruitment_slogan": "招新语", "full_intro": "完整介绍"}
 
     @staticmethod
     def slugify(name: str, session: Session):
@@ -177,6 +179,8 @@ class ClubService:
         if not PermissionService.can_create(actor):
             raise DomainError("FORBIDDEN", "只有社团负责人或管理员可创建社团", 403)
         name = (payload.get("name") or "新建社团").strip()
+        if len(name) > 50:
+            raise DomainError("VALIDATION_ERROR", "请检查表单填写内容", 422, {"name": "社团名称不能超过 50 字"})
         category_id = payload.get("category_id") or ClubService.default_category_id(session)
         category = session.get(ClubCategory, category_id) if isinstance(category_id, int) else None
         if not category or not category.is_active:
@@ -213,8 +217,17 @@ class ClubService:
         PermissionService.require_edit(session, actor, club.id)
         try:
             data = ClubDraftInput.model_validate(payload)
-        except Exception as exc:
-            raise DomainError("VALIDATION_ERROR", str(exc), 422)
+        except ValidationError as exc:
+            fields = {}
+            for error in exc.errors():
+                field = str(error["loc"][0])
+                label = ClubService.FIELD_LABELS.get(field, field)
+                if error["type"] == "string_too_long":
+                    limit = error.get("ctx", {}).get("max_length")
+                    fields[field] = f"{label}不能超过 {limit} 字"
+                else:
+                    fields[field] = error["msg"]
+            raise DomainError("VALIDATION_ERROR", "请检查表单填写内容", 422, fields)
         pending = session.scalar(select(ClubRevision).where(ClubRevision.club_id == club.id, ClubRevision.review_status == ReviewStatus.PENDING.value))
         if pending:
             raise DomainError("CLUB_REVIEW_PENDING", "该社团已有待审核版本", 409)
@@ -280,6 +293,21 @@ class ClubService:
         if club.current_revision_id is None:
             club.lifecycle_status = ClubLifecycle.DRAFT.value
         AuditService.record(session, actor, "CLUB_REVIEW_WITHDRAWN", "CLUB_REVISION", revision.id, request=request)
+        session.commit()
+        return revision
+
+    @staticmethod
+    def delete_draft(session: Session, club: Club, actor: User, revision_id: int, request=None):
+        PermissionService.require_edit(session, actor, club.id)
+        revision = session.get(ClubRevision, revision_id)
+        if not revision or revision.club_id != club.id:
+            raise DomainError("DRAFT_NOT_FOUND", "草稿不存在", 404)
+        if revision.review_status != ReviewStatus.DRAFT.value:
+            raise DomainError("DRAFT_NOT_DELETABLE", "仅草稿状态的版本可以删除", 409)
+        revision.review_status = ReviewStatus.WITHDRAWN.value
+        if club.current_revision_id is None:
+            club.lifecycle_status, club.deleted_at = ClubLifecycle.DELETED.value, utcnow()
+        AuditService.record(session, actor, "CLUB_DRAFT_DELETED", "CLUB_REVISION", revision.id, after={"club_id": club.id}, request=request)
         session.commit()
         return revision
 
