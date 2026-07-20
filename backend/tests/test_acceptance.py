@@ -62,6 +62,24 @@ def test_club_versions_public_visibility_and_optimistic_lock(client, app):
     assert client.get("/api/v1/public/clubs").get_json()["data"]["items"][0]["name"] == "物理实验社（新版）"
 
 
+def test_club_category_defaults_to_academic_and_can_be_changed(client, app):
+    admin = login(client, "admin", "Admin123!")
+    manager_id = register(client, "category-manager", "CLUB_MANAGER", "申请负责人")
+    approve(client, admin, manager_id, "CLUB_MANAGER")
+    manager = login(client, "category-manager", "password123")
+    categories = client.get("/api/v1/public/categories").get_json()["data"]
+    academic = next(category for category in categories if category["slug"] == "academic")
+    alternative = next(category for category in categories if category["id"] != academic["id"])
+
+    created = client.post("/api/v1/clubs", json={"name": "类别测试社"}, headers=headers(manager))
+    assert created.status_code == 201
+    revision = created.get_json()["data"]["revision"]
+    assert revision["category_id"] == academic["id"] and revision["category"]["slug"] == "academic"
+
+    changed = complete_revision(client, manager, created.get_json()["data"]["club"]["id"], revision["id"], category_id=alternative["id"])
+    assert changed["category_id"] == alternative["id"] and changed["category"]["id"] == alternative["id"]
+
+
 def test_position_invitation_and_president_transfer_permissions(client, app):
     admin = login(client, "admin", "Admin123!")
     manager_id = register(client, "president", "CLUB_MANAGER", "社长申请")
