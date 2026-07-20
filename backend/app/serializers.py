@@ -65,7 +65,7 @@ def revision_data(revision: ClubRevision, session, detailed: bool = True):
 
 def club_data(club: Club, session, include_current: bool = True, include_internal: bool = False):
     current = session.get(ClubRevision, club.current_revision_id) if club.current_revision_id else None
-    data = {"id": club.id, "slug": club.slug, "lifecycle_status": club.lifecycle_status, "created_by": club.created_by, "created_at": date(club.created_at), "updated_at": date(club.updated_at)}
+    data = {"id": club.id, "slug": club.slug, "lifecycle_status": club.lifecycle_status, "sort_order": club.sort_order, "created_by": club.created_by, "created_at": date(club.created_at), "updated_at": date(club.updated_at)}
     if current and include_current:
         data["current_revision"] = revision_data(current, session)
         data.update({key: data["current_revision"][key] for key in ["name", "category", "short_intro", "recruitment_slogan", "icon_url"]})
