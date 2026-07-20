@@ -16,6 +16,10 @@ def test_registration_review_login_status_and_leak_protection(client, app):
     assert wrong.status_code == 401 and wrong.get_json()["error"]["code"] == "INVALID_REGISTRATION_STATUS_CREDENTIALS"
     assert client.post("/api/v1/auth/registration-status", json={"username": "pending-user", "password": "password123"}).get_json()["data"] == {"status": "PENDING"}
     approve(client, admin, user_id)
+    approved_status = client.post("/api/v1/auth/registration-status", json={"username": "pending-user", "password": "password123"})
+    approved_data = approved_status.get_json()["data"]
+    assert approved_status.status_code == 200 and approved_data["status"] == "ACTIVE"
+    assert approved_data["access_token"] and approved_data["user"]["username"] == "pending-user"
     user_token = login(client, "pending-user", "password123")
     me = client.get("/api/v1/auth/me", headers=headers(user_token)).get_json()["data"]
     assert "password" not in me and me["role"] == "USER"
