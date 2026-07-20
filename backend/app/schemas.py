@@ -23,11 +23,11 @@ class RegisterInput(BaseModel):
 class ClubDraftInput(BaseModel):
     revision_id: int | None = None
     lock_version: int | None = None
-    name: str = Field(default="", max_length=30)
+    name: str = Field(default="", max_length=50)
     category_id: int | None = None
-    short_intro: str = Field(default="", max_length=100)
-    recruitment_slogan: str = Field(default="", max_length=80)
-    full_intro: str = Field(default="", max_length=3000)
+    short_intro: str = Field(default="", max_length=200)
+    recruitment_slogan: str = Field(default="", max_length=120)
+    full_intro: str = Field(default="", max_length=5000)
     advisor: str | None = Field(default=None, max_length=50)
     activity_time: str | None = Field(default=None, max_length=100)
     activity_location: str | None = Field(default=None, max_length=100)
