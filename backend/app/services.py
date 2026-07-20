@@ -166,17 +166,28 @@ class ClubService:
         return (session.scalar(select(func.max(ClubRevision.version_no)).where(ClubRevision.club_id == club_id)) or 0) + 1
 
     @staticmethod
+    def default_category_id(session: Session):
+        academic = session.scalar(select(ClubCategory.id).where(ClubCategory.slug == "academic", ClubCategory.is_active.is_(True)))
+        if academic:
+            return academic
+        return session.scalar(select(ClubCategory.id).where(ClubCategory.is_active.is_(True)).order_by(ClubCategory.sort_order, ClubCategory.id))
+
+    @staticmethod
     def create(session: Session, actor: User, payload: dict, request=None):
         if not PermissionService.can_create(actor):
             raise DomainError("FORBIDDEN", "只有社团负责人或管理员可创建社团", 403)
         name = (payload.get("name") or "新建社团").strip()
+        category_id = payload.get("category_id") or ClubService.default_category_id(session)
+        category = session.get(ClubCategory, category_id) if isinstance(category_id, int) else None
+        if not category or not category.is_active:
+            raise DomainError("VALIDATION_ERROR", "请选择可用的社团类别", 422, {"category_id": "请选择可用的社团类别"})
         club = Club(slug=ClubService.slugify(name, session), created_by=actor.id)
         session.add(club)
         session.flush()
-        revision = ClubRevision(club_id=club.id, version_no=1, name=name if name != "新建社团" else "", created_by=actor.id)
+        revision = ClubRevision(club_id=club.id, version_no=1, name=name if name != "新建社团" else "", category_id=category.id, created_by=actor.id)
         session.add(revision)
         session.add(ClubPosition(club_id=club.id, user_id=actor.id, position=PositionType.PRESIDENT.value, status=PositionStatus.ACTIVE.value, accepted_at=utcnow()))
-        AuditService.record(session, actor, "CLUB_CREATED", "CLUB", club.id, after={"slug": club.slug}, request=request)
+        AuditService.record(session, actor, "CLUB_CREATED", "CLUB", club.id, after={"slug": club.slug, "category_id": category.id}, request=request)
         session.commit()
         return club, revision
 
