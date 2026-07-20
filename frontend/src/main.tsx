@@ -5,6 +5,7 @@ import 'antd/dist/reset.css'
 import './styles.css'
 import './loading.css'
 import './admin-ordering.css'
+import './editor-validation.css'
 import App from './App'
 
 const client = new QueryClient({ defaultOptions: { queries: { staleTime: 15_000, retry: 1 } } })
