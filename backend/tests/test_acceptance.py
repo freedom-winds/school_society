@@ -62,6 +62,34 @@ def test_club_versions_public_visibility_and_optimistic_lock(client, app):
     assert client.get("/api/v1/public/clubs").get_json()["data"]["items"][0]["name"] == "物理实验社（新版）"
 
 
+def test_draft_validation_errors_and_owner_deletion_are_traceable(client, app):
+    admin = login(client, "admin", "Admin123!")
+    manager_id = register(client, "draft-manager", "CLUB_MANAGER", "申请负责人")
+    other_id = register(client, "draft-other", "CLUB_MANAGER", "另一负责人")
+    approve(client, admin, manager_id, "CLUB_MANAGER"); approve(client, admin, other_id, "CLUB_MANAGER")
+    manager = login(client, "draft-manager", "password123")
+    other = login(client, "draft-other", "password123")
+    survivor = client.post("/api/v1/clubs", json={"name": "保留草稿"}, headers=headers(manager))
+    assert survivor.status_code == 201
+    created = client.post("/api/v1/clubs", json={"name": "待删除草稿"}, headers=headers(manager)).get_json()["data"]
+    club_id, revision = created["club"]["id"], created["revision"]
+
+    too_long = client.patch(f"/api/v1/clubs/{club_id}/draft", json={"revision_id": revision["id"], "lock_version": revision["lock_version"], "name": "甲" * 51}, headers=headers(manager))
+    assert too_long.status_code == 422 and "name" in too_long.get_json()["error"]["fields"]
+    relaxed = client.patch(f"/api/v1/clubs/{club_id}/draft", json={"revision_id": revision["id"], "lock_version": revision["lock_version"], "name": "甲" * 50, "category_id": revision["category_id"]}, headers=headers(manager))
+    assert relaxed.status_code == 200 and len(relaxed.get_json()["data"]["name"]) == 50
+    invalid_submit = client.post(f"/api/v1/clubs/{club_id}/submit", json={"revision_id": revision["id"]}, headers=headers(manager))
+    assert invalid_submit.status_code == 422 and "short_intro" in invalid_submit.get_json()["error"]["fields"]
+    assert client.delete(f"/api/v1/clubs/{club_id}/drafts/{revision['id']}", headers=headers(other)).status_code == 403
+    assert client.delete(f"/api/v1/clubs/{club_id}/drafts/{revision['id']}", headers=headers(manager)).status_code == 200
+    dashboard = client.get("/api/v1/dashboard/clubs", headers=headers(manager)).get_json()["data"]["clubs"]
+    assert all(club["id"] != club_id for club in dashboard)
+    admin_clubs = client.get("/api/v1/admin/clubs", headers=headers(admin)).get_json()["data"]["items"]
+    assert admin_clubs[-1]["id"] == club_id and admin_clubs[-1]["lifecycle_status"] == "DELETED"
+    detail = client.get(f"/api/v1/admin/reviews/clubs/{revision['id']}", headers=headers(admin))
+    assert detail.status_code == 200 and detail.get_json()["data"]["pending_revision"]["review_status"] == "WITHDRAWN"
+
+
 def test_club_category_defaults_to_academic_and_can_be_changed(client, app):
     admin = login(client, "admin", "Admin123!")
     manager_id = register(client, "category-manager", "CLUB_MANAGER", "申请负责人")
