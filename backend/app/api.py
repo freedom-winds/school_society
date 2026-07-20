@@ -185,7 +185,7 @@ def public_clubs():
     elif sort == "created_desc":
         query = query.order_by(Club.created_at.desc())
     else:
-        query = query.order_by(Club.updated_at.desc())
+        query = query.order_by(Club.sort_order.desc(), Club.updated_at.desc())
     clubs, meta = paginate(query, request.args.get("page"), request.args.get("page_size"))
     return result({"items": [club_data(c, db.session) for c in clubs], "pagination": meta})
 
@@ -204,7 +204,7 @@ def public_club_detail(slug):
 @api.get("/public/home")
 def public_home():
     categories = db.session.scalars(select(ClubCategory).where(ClubCategory.is_active.is_(True)).order_by(ClubCategory.sort_order).limit(8)).all()
-    clubs = db.session.query(Club).filter(Club.lifecycle_status == ClubLifecycle.PUBLISHED.value, Club.current_revision_id.is_not(None), Club.deleted_at.is_(None)).order_by(Club.updated_at.desc()).limit(8).all()
+    clubs = db.session.query(Club).filter(Club.lifecycle_status == ClubLifecycle.PUBLISHED.value, Club.current_revision_id.is_not(None), Club.deleted_at.is_(None)).order_by(Club.sort_order.desc(), Club.updated_at.desc()).limit(8).all()
     return result({"categories": [category_data(c) for c in categories], "featured_clubs": [club_data(c, db.session) for c in clubs[:4]], "latest_clubs": [club_data(c, db.session) for c in clubs[4:]]})
 
 
@@ -555,8 +555,40 @@ def admin_clubs():
         query = query.filter(Club.lifecycle_status == status)
     if keyword:
         query = query.join(ClubRevision, Club.current_revision_id == ClubRevision.id, isouter=True).filter(ClubRevision.name.ilike(f"%{keyword}%"))
-    clubs, meta = paginate(query.order_by(Club.updated_at.desc()), request.args.get("page"), request.args.get("page_size"))
+    clubs, meta = paginate(query.order_by(Club.sort_order.desc(), Club.updated_at.desc()), request.args.get("page"), request.args.get("page_size"))
     return result({"items": [club_data(c, db.session, include_internal=True) for c in clubs], "pagination": meta})
+
+
+@api.get("/admin/clubs/ordering")
+@admin_required
+def admin_club_ordering():
+    clubs = db.session.scalars(select(Club).where(
+        Club.lifecycle_status == ClubLifecycle.PUBLISHED.value,
+        Club.current_revision_id.is_not(None),
+        Club.deleted_at.is_(None),
+    ).order_by(Club.sort_order.desc(), Club.updated_at.desc())).all()
+    return result([club_data(club, db.session, include_internal=True) for club in clubs])
+
+
+@api.put("/admin/clubs/ordering")
+@admin_required
+def update_admin_club_ordering():
+    club_ids = parse_body().get("club_ids")
+    if not isinstance(club_ids, list) or any(not isinstance(club_id, int) for club_id in club_ids) or len(set(club_ids)) != len(club_ids):
+        raise DomainError("VALIDATION_ERROR", "排序内容无效", 422)
+    clubs = db.session.scalars(select(Club).where(
+        Club.lifecycle_status == ClubLifecycle.PUBLISHED.value,
+        Club.current_revision_id.is_not(None),
+        Club.deleted_at.is_(None),
+    )).all()
+    by_id = {club.id: club for club in clubs}
+    if set(club_ids) != set(by_id):
+        raise DomainError("ORDERING_CONFLICT", "社团列表已变化，请刷新后重新排序", 409)
+    for index, club_id in enumerate(club_ids):
+        by_id[club_id].sort_order = len(club_ids) - index
+    AuditService.record(db.session, g.current_user, "CLUB_ORDER_UPDATED", "CLUB", None, after={"club_ids": club_ids}, request=request)
+    db.session.commit()
+    return result([club_data(by_id[club_id], db.session, include_internal=True) for club_id in club_ids])
 
 
 @api.post("/admin/clubs")
