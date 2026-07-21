@@ -2,6 +2,7 @@ import io
 from hashlib import sha256
 
 from PIL import Image
+from pillow_heif import from_pillow
 
 from app.extensions import db
 from app.models import AuditLog, Club, ClubLifecycle, ClubRevision, RefreshToken, User
@@ -146,6 +147,13 @@ def test_admin_disable_refresh_hash_audit_and_image_validation(client, app):
     image = Image.new("RGB", (256, 256), "navy"); buffer = io.BytesIO(); image.save(buffer, "PNG"); buffer.seek(0)
     uploaded = client.post("/api/v1/files/images", data={"file": (buffer, "club.png")}, headers=headers(user_token), content_type="multipart/form-data")
     assert uploaded.status_code == 201 and uploaded.get_json()["data"]["url"].startswith("/uploads/")
+    assert app.config["MAX_CONTENT_LENGTH"] == 30 * 1024 * 1024
+    wide_image = Image.new("RGB", (24000, 1), "navy"); wide_buffer = io.BytesIO(); wide_image.save(wide_buffer, "PNG"); wide_buffer.seek(0)
+    wide_uploaded = client.post("/api/v1/files/images", data={"file": (wide_buffer, "wide-poster.png")}, headers=headers(user_token), content_type="multipart/form-data")
+    assert wide_uploaded.status_code == 201 and wide_uploaded.get_json()["data"]["width"] == 24000
+    heif_buffer = io.BytesIO(); from_pillow(Image.new("RGB", (64, 32), "navy")).save(heif_buffer, format="HEIF", quality=90); heif_buffer.seek(0)
+    heif_uploaded = client.post("/api/v1/files/images", data={"file": (heif_buffer, "phone-poster.heic")}, headers=headers(user_token), content_type="multipart/form-data")
+    assert heif_uploaded.status_code == 201 and heif_uploaded.get_json()["data"]["mime_type"] == "image/jpeg" and heif_uploaded.get_json()["data"]["url"].endswith(".jpg")
     client.post(f"/api/v1/admin/users/{user_id}/disable", headers=headers(admin))
     assert client.get("/api/v1/auth/me", headers=headers(user_token)).status_code == 403
     with app.app_context():
