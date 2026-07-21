@@ -98,7 +98,7 @@ server {
 
     root $PROJECT_DIR/frontend/dist;
     index index.html;
-    client_max_body_size 10m;
+    client_max_body_size 30m;
 
     location / {
         try_files \$uri \$uri/ /index.html;
