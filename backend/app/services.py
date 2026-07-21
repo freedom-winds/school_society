@@ -10,9 +10,12 @@ from pathlib import Path
 
 import jwt
 from PIL import Image, UnidentifiedImageError
+from pillow_heif import register_heif_opener
 from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+
+register_heif_opener()
 
 from .models import (
     AuditLog, Club, ClubCategory, ClubLifecycle, ClubPosition, ClubRevision,
@@ -488,13 +491,21 @@ class TransferService:
 
 
 class StorageService:
-    VALID_FORMATS = {"PNG": ("image/png", ".png"), "JPEG": ("image/jpeg", ".jpg"), "WEBP": ("image/webp", ".webp")}
+    MAX_BYTES = 30 * 1024 * 1024
+    MAX_DIMENSION = 24000
+    VALID_FORMATS = {
+        "PNG": ("image/png", ".png", "PNG"),
+        "JPEG": ("image/jpeg", ".jpg", "JPEG"),
+        "WEBP": ("image/webp", ".webp", "WEBP"),
+        "HEIF": ("image/jpeg", ".jpg", "JPEG"),
+        "HEIC": ("image/jpeg", ".jpg", "JPEG"),
+    }
 
     @staticmethod
     def save_image(session: Session, stream, filename: str, user: User, upload_dir: Path):
         original = stream.read()
-        if not original or len(original) > 10 * 1024 * 1024:
-            raise DomainError("INVALID_IMAGE", "图片为空或超过 10 MB", 422)
+        if not original or len(original) > StorageService.MAX_BYTES:
+            raise DomainError("INVALID_IMAGE", "图片为空或超过 30 MB", 422)
         try:
             image = Image.open(io.BytesIO(original))
             image.verify()
@@ -503,13 +514,13 @@ class StorageService:
             raise DomainError("INVALID_IMAGE", "文件不是有效图片", 422)
         fmt = image.format
         if fmt not in StorageService.VALID_FORMATS:
-            raise DomainError("INVALID_IMAGE_FORMAT", "仅支持 PNG、JPEG、WebP 图片，禁止 SVG", 422)
-        if max(image.size) > 4000:
-            raise DomainError("INVALID_IMAGE_DIMENSION", "图片最长边不能超过 4000px", 422)
-        mime, extension = StorageService.VALID_FORMATS[fmt]
+            raise DomainError("INVALID_IMAGE_FORMAT", "仅支持 PNG、JPEG、WebP、HEIC/HEIF 图片，禁止 SVG", 422)
+        if max(image.size) > StorageService.MAX_DIMENSION:
+            raise DomainError("INVALID_IMAGE_DIMENSION", "图片最长边不能超过 24000px", 422)
+        mime, extension, output_format = StorageService.VALID_FORMATS[fmt]
         key = f"{uuid.uuid4().hex}{extension}"
         upload_dir.mkdir(parents=True, exist_ok=True)
-        image.convert("RGB" if fmt == "JPEG" else image.mode).save(upload_dir / key, format=fmt, quality=90)
+        image.convert("RGB" if output_format == "JPEG" else image.mode).save(upload_dir / key, format=output_format, quality=90)
         record = UploadedFile(storage_key=key, original_name=Path(filename).name[:255], mime_type=mime, size=(upload_dir / key).stat().st_size, width=image.width, height=image.height, uploaded_by=user.id)
         session.add(record)
         session.commit()
