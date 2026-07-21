@@ -9,6 +9,7 @@ APP_NAME="school-society"
 APP_USER="${SUDO_USER:-$(id -un)}"
 VENV_DIR="$PROJECT_DIR/.venv"
 ENV_FILE="$PROJECT_DIR/.env"
+NGINX_CONFIG="/etc/nginx/conf.d/soc-shs.conf"
 
 if [[ "$(id -u)" -ne 0 ]]; then
   echo "请使用 sudo bash scripts/hot-update.sh 运行。" >&2
@@ -26,6 +27,14 @@ set +a
   cd "$PROJECT_DIR/backend"
   sudo -u "$APP_USER" env DATABASE_URL="$DATABASE_URL" "$VENV_DIR/bin/python" -m alembic -c alembic.ini upgrade head
 )
+
+if [[ -f "$NGINX_CONFIG" ]]; then
+  if grep -qE '^[[:space:]]*client_max_body_size[[:space:]]+' "$NGINX_CONFIG"; then
+    sed -Ei 's/^[[:space:]]*client_max_body_size[[:space:]]+[^;]+;/    client_max_body_size 30m;/' "$NGINX_CONFIG"
+  else
+    sed -Ei '/^[[:space:]]*index[[:space:]]+index\.html;/a\    client_max_body_size 30m;' "$NGINX_CONFIG"
+  fi
+fi
 
 systemctl restart "$APP_NAME"
 nginx -t
