@@ -48,7 +48,7 @@ def create_app(test_config: dict | None = None):
 
     @app.errorhandler(413)
     def file_too_large(_error):
-        return jsonify({"success": False, "error": {"code": "FILE_TOO_LARGE", "message": "上传文件超过 10 MB", "fields": {}}, "request_id": getattr(g, "request_id", None)}), 413
+        return jsonify({"success": False, "error": {"code": "FILE_TOO_LARGE", "message": "上传文件超过 30 MB", "fields": {}}, "request_id": getattr(g, "request_id", None)}), 413
 
     app.register_blueprint(api)
     app.add_url_rule("/uploads/<path:storage_key>", "uploads", upload_file)
