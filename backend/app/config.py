@@ -12,6 +12,6 @@ class Config:
     ACCESS_TOKEN_MINUTES = int(os.environ.get("ACCESS_TOKEN_MINUTES", "20"))
     REFRESH_TOKEN_DAYS = int(os.environ.get("REFRESH_TOKEN_DAYS", "7"))
     UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", str(BASE_DIR / "uploads")))
-    MAX_CONTENT_LENGTH = 10 * 1024 * 1024
+    MAX_CONTENT_LENGTH = 30 * 1024 * 1024
     JSON_AS_ASCII = False
     INITIAL_ADMIN_PASSWORD = os.environ.get("INITIAL_ADMIN_PASSWORD", "Admin123!")
